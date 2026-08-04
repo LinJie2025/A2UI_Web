@@ -1,0 +1,55 @@
+sequenceDiagram
+    participant Browser as 浏览器
+    participant Nginx as Nginx
+    participant FastAPI as FastAPI (/api/chat)
+    participant Auth as JWT Middleware
+    participant ChatSvc as ChatService
+    participant Prompt as SystemPromptBuilder
+    participant Loop as AgentLoop
+    participant LLM as LLMClient (DeepSeek/OpenAI)
+    participant MCP as MCPClient (Odoo /mcp)
+    participant DB as SQLite
+
+    Browser->>Nginx: POST /api/chat {messages, conversation_id?}
+    Nginx->>FastAPI: proxy pass
+    FastAPI->>Auth: verify JWT → User
+    Auth-->>FastAPI: User {id, role, odoo_token}
+
+    FastAPI->>ChatSvc: stream_chat(user, messages, conv_id)
+
+    rect rgb(240, 248, 255)
+        Note over ChatSvc,DB: 1. 准备阶段
+        ChatSvc->>Prompt: build(user, global_tools)
+        Prompt-->>ChatSvc: system_prompt + filtered_tools
+        ChatSvc->>DB: get_or_create conversation
+        DB-->>ChatSvc: conversation
+        ChatSvc->>DB: save user message
+    end
+
+    rect rgb(255, 248, 240)
+        Note over ChatSvc,MCP: 2. Agentic Loop (MAX_LOOPS=20)
+        ChatSvc->>Loop: run(messages + system_prompt, tools, user)
+
+        loop 每轮推理 (最多 20 次)
+            Loop->>LLM: chat_stream(messages, tools)
+            LLM-->>Loop: SSE delta (content chunk)
+
+            alt 有文本内容
+                Loop-->>Browser: SSE: event=text, data={delta}
+            else 有 tool_calls
+                Loop-->>Browser: SSE: event=tool_call, data={name, args}
+                Loop->>MCP: call_tool(name, args, odoo_token)
+                MCP-->>Loop: tool_result
+                Loop-->>Browser: SSE: event=tool_result, data={name, result}
+                Loop->>Loop: 回填 tool result 到 messages
+            else 推理完成 (finish_reason=stop)
+                Loop-->>ChatSvc: done
+            end
+        end
+    end
+
+    rect rgb(240, 255, 240)
+        Note over ChatSvc,Browser: 3. 收尾
+        ChatSvc->>DB: save assistant message
+        ChatSvc-->>Browser: SSE: event=done, data={conversation_id}
+    end

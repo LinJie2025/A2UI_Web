@@ -1,0 +1,53 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Source code
+*.py       text diff=python
+*.ts       text diff=typescript
+*.tsx      text diff=typescript
+*.vue      text
+*.js       text
+*.mjs      text
+*.cjs      text
+*.json     text
+*.yaml     text
+*.yml      text
+*.toml     text
+*.ini      text
+*.cfg      text
+*.env.example text
+
+# Documentation
+*.md       text diff=markdown
+*.txt      text
+*.rst      text
+
+# Web
+*.html     text diff=html
+*.css      text diff=css
+*.svg      text
+
+# Scripts
+*.sh       text eol=lf
+*.bash     text eol=lf
+
+# Configs
+Dockerfile       text eol=lf
+docker-compose*.yml text eol=lf
+nginx*.conf      text eol=lf
+*.conf           text
+
+# Binary files (no line ending conversion)
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.pdf       binary
+*.zip       binary
+*.tar.gz    binary
+*.gz        binary
+*.db        binary
+*.sqlite3   binary
+*.pyc       binary

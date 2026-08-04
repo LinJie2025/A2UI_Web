@@ -1,0 +1,36 @@
+
+# ==================== Conventional Commits ====================
+# <type>(<scope>): <short summary>
+# 
+# <body - explain WHAT and WHY, not HOW>
+# 
+# <footer - references, breaking changes>
+# ==============================================================
+# 
+# TYPE (必选):
+#   feat     新功能
+#   fix      修复 Bug
+#   docs     文档变更
+#   style    格式调整（不影响代码逻辑）
+#   refactor 重构（不新增功能、不修复 Bug）
+#   perf     性能优化
+#   test     添加/修改测试
+#   chore    构建/工具/依赖变更
+#   ci       CI 配置变更
+#   revert   回滚提交
+# 
+# SCOPE (可选):
+#   backend, frontend, nginx, docker, docs, deps, auth, chat, mcp, api
+# 
+# 规则:
+#   1. summary 不超过 72 字符，中文/英文皆可
+#   2. summary 不要以句号结尾
+#   3. body 与 summary 之间空一行
+#   4. 引用 Issue: Closes #123 / Refs #456
+#   5. 破坏性变更: BREAKING CHANGE: 描述
+# 
+# 示例:
+#   feat(backend): 添加 SSE 流式响应的心跳保活机制
+#   fix(frontend): 修复移动端侧边栏拖动时页面滚动
+#   chore(deps): 升级 pydantic 到 2.11.*
+#   refactor(backend): 将 Tool 列表缓存逻辑抽取为独立模块

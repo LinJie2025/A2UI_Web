@@ -1,0 +1,47 @@
+#!/bin/bash
+# =============================================================
+# pre-commit hook: 基础检查
+# =============================================================
+
+# 防止提交到 main 分支 (仅在本地生效，远程靠分支保护)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+PROTECTED_BRANCHES="main"
+
+for protected in $PROTECTED_BRANCHES; do
+    if [ "$CURRENT_BRANCH" = "$protected" ]; then
+        echo ""
+        echo "=============================================="
+        echo "  警告: 你正在直接向 $protected 分支提交!"
+        echo "  建议: 使用功能分支 + Pull Request 流程"
+        echo "=============================================="
+        echo ""
+        read -p "确认直接提交到 $protected? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "已取消。请创建功能分支: git checkout -b feat/your-feature"
+            exit 1
+        fi
+    fi
+done
+
+# 检查是否有未解决的冲突标记
+if git diff --cached --name-only | xargs grep -l '^<<<<<<< ' 2>/dev/null; then
+    echo ""
+    echo "=============================================="
+    echo "  错误: 暂存区文件中存在未解决的冲突标记!"
+    echo "  请先解决所有冲突后再提交"
+    echo "=============================================="
+    exit 1
+fi
+
+# Check for .env file in staged changes
+if git diff --cached --name-only | grep -q '^.env$'; then
+    echo ""
+    echo "=============================================="
+    echo "  错误: 正在尝试提交 .env 文件!"
+    echo "  .env 包含敏感信息，不应提交到仓库"
+    echo "=============================================="
+    exit 1
+fi
+
+exit 0

@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2UI — 登录</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #f8fafb;
+    --bg-card: #ffffff;
+    --border-subtle: #e2e8f0;
+    --border-active: #93c5fd;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --accent-primary: #2563eb;
+    --accent-primary-light: #eff6ff;
+    --accent-teal: #0d9488;
+    --accent-warm: #f97316;
+    --accent-danger: #ef4444;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03);
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.65;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bg-subtle {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(37,99,235,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 75%, rgba(13,148,136,0.05) 0%, transparent 60%),
+      var(--bg-page);
+  }
+  .bg-dots {
+    position: fixed; inset: 0; z-index: 0; opacity: 0.25; pointer-events: none;
+    background-image: radial-gradient(#cbd5e1 0.5px, transparent 0.5px);
+    background-size: 22px 22px;
+  }
+
+  /* Animations */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes floatShape {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(4px, -6px) rotate(1deg); }
+    66% { transform: translate(-2px, 4px) rotate(-1deg); }
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+  @keyframes drawLine {
+    from { stroke-dashoffset: 300; }
+    to { stroke-dashoffset: 0; }
+  }
+  .animate-fade-up { animation: fadeSlideUp 0.4s ease-out both; }
+
+  /* Form elements */
+  .a2ui-input {
+    background: #f8fafc;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 0.875rem;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    width: 100%;
+    transition: all 0.2s ease;
+    min-height: 48px;
+  }
+  .a2ui-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    background: var(--bg-card);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+  }
+  .a2ui-input::placeholder { color: var(--text-muted); }
+  .a2ui-input.error { border-color: var(--accent-danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.06); background: #fff; }
+
+  .a2ui-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 0.375rem;
+    font-family: var(--font-display);
+  }
+  .a2ui-error-text {
+    font-size: 0.75rem;
+    color: var(--accent-danger);
+    margin-top: 0.25rem;
+    display: flex; align-items: center; gap: 0.25rem;
+  }
+  .a2ui-error-banner {
+    font-size: 0.8125rem;
+    color: #991b1b;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: var(--radius-sm);
+    padding: 0.625rem 0.875rem;
+    display: flex; align-items: flex-start; gap: 0.5rem;
+  }
+
+  /* Buttons */
+  .a2ui-btn {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: none;
+    min-height: 48px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    letter-spacing: 0.01em;
+  }
+  .a2ui-btn-primary {
+    background: var(--accent-primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.2);
+    width: 100%;
+  }
+  .a2ui-btn-primary:hover:not(:disabled) {
+    background: #1d4ed8;
+    box-shadow: 0 6px 20px rgba(37,99,235,0.25);
+    transform: translateY(-1px);
+  }
+  .a2ui-btn-primary:active:not(:disabled) { transform: scale(0.98); background: #1e40af; }
+  .a2ui-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Checkbox */
+  .a2ui-checkbox {
+    appearance: none;
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--border-subtle);
+    border-radius: 4px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .a2ui-checkbox:checked {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+  }
+  .a2ui-checkbox:checked::after {
+    content: '';
+    position: absolute; top: 2px; left: 5px;
+    width: 5px; height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .a2ui-checkbox:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  /* Tabs */
+  .auth-tab {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    padding: 0.5rem 1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .auth-tab:hover { color: var(--text-secondary); }
+  .auth-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    font-weight: 600;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .auth-panel-left { display: none; }
+    .auth-panel-right {
+      max-width: 100% !important;
+      width: 100% !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 2rem 1.5rem !important;
+    }
+    body { align-items: flex-start; padding: 0; min-height: 100svh; }
+    .auth-container { margin: 0; width: 100%; min-height: 100svh; border-radius: 0; overflow: hidden; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+</head>
+<body class="antialiased">
+
+<div class="bg-subtle"></div>
+<div class="bg-dots"></div>
+
+<!-- ═══════════════ AUTH CONTAINER ═══════════════ -->
+<div class="relative z-10 w-full max-w-4xl mx-4 my-8 auth-container" style="min-height:560px;">
+
+  <div class="flex bg-white rounded-2xl overflow-hidden shadow-lg" style="min-height:560px;">
+
+    <!-- ═══ LEFT PANEL — Branding ═══ -->
+    <div class="auth-panel-left w-5/12 hidden md:flex flex-col justify-between relative overflow-hidden"
+         style="background: linear-gradient(160deg, #1e3a5f 0%, #1a365d 30%, #1e40af 70%, #1d4ed8 100%);">
+
+      <!-- Abstract geometric illustration -->
+      <div class="absolute inset-0 opacity-20">
+        <svg viewBox="0 0 400 600" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+          <circle cx="80" cy="120" r="60" stroke="white" stroke-width="0.5" stroke-dasharray="4 4" opacity="0.4" style="animation: floatShape 8s ease-in-out infinite;"/>
+          <circle cx="320" cy="400" r="80" stroke="white" stroke-width="0.5" stroke-dasharray="6 6" opacity="0.3" style="animation: floatShape 10s ease-in-out infinite 2s;"/>
+          <circle cx="200" cy="280" r="40" fill="white" opacity="0.06" style="animation: pulseDot 3s ease-in-out infinite;"/>
+          <circle cx="100" cy="450" r="8" fill="white" opacity="0.15" style="animation: pulseDot 2.5s ease-in-out infinite 0.5s;"/>
+          <circle cx="300" cy="150" r="5" fill="white" opacity="0.12" style="animation: pulseDot 3.5s ease-in-out infinite 1s;"/>
+          <line x1="40" y1="200" x2="360" y2="200" stroke="white" stroke-width="0.3" opacity="0.1"/>
+          <line x1="40" y1="350" x2="360" y2="350" stroke="white" stroke-width="0.3" opacity="0.1"/>
+          <rect x="120" y="80" width="30" height="30" rx="6" stroke="white" stroke-width="0.6" opacity="0.25" transform="rotate(15 135 95)" style="animation: floatShape 7s ease-in-out infinite 1s;"/>
+          <rect x="250" y="480" width="25" height="25" rx="5" stroke="white" stroke-width="0.6" opacity="0.2" transform="rotate(-10 262 492)" style="animation: floatShape 9s ease-in-out infinite 3s;"/>
+        </svg>
+      </div>
+
+      <!-- Top: Logo & tagline -->
+      <div class="relative z-10 p-8 pt-10">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+          </div>
+          <span class="font-display font-bold text-2xl tracking-tight text-white">A2UI</span>
+        </div>
+
+        <h1 class="font-display text-2xl font-bold text-white mb-3 leading-tight">
+          智能 ERP<br>对话助手
+        </h1>
+        <p class="text-sm leading-relaxed" style="color: rgba(255,255,255,0.7);">
+          用自然语言管理库存、订单、客户 — AI 为你生成可交互的操作界面。
+        </p>
+
+        <!-- Feature pills -->
+        <div class="flex flex-wrap gap-2 mt-6">
+          <span class="text-xs font-medium px-3 py-1.5 rounded-full" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.12);">
+            💬 自然语言交互
+          </span>
+          <span class="text-xs font-medium px-3 py-1.5 rounded-full" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.12);">
+            📋 动态表格表单
+          </span>
+          <span class="text-xs font-medium px-3 py-1.5 rounded-full" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.12);">
+            🔗 Odoo 无缝对接
+          </span>
+        </div>
+      </div>
+
+      <!-- Bottom: subtle text -->
+      <div class="relative z-10 p-8 pb-10">
+        <p class="text-xs" style="color: rgba(255,255,255,0.35);">v1.0.0 · 生产环境就绪</p>
+      </div>
+    </div>
+
+    <!-- ═══ RIGHT PANEL — Auth Form ═══ -->
+    <div class="auth-panel-right flex-1 flex flex-col justify-center p-8 sm:p-10 md:p-12" style="max-width:480px;">
+
+      <!-- Mobile-only logo -->
+      <div class="md:hidden flex items-center gap-2.5 mb-6">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--accent-primary);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <span class="font-display font-bold text-xl tracking-tight text-slate-800">A2UI</span>
+      </div>
+
+      <!-- ═══ TABS ═══ -->
+      <div class="flex border-b border-slate-200 mb-6" role="tablist">
+        <button class="auth-tab active" role="tab" aria-selected="true" id="tab-login" onclick="switchAuthTab('login')">登录</button>
+        <button class="auth-tab" role="tab" aria-selected="false" id="tab-register" onclick="switchAuthTab('register')">注册</button>
+      </div>
+
+      <!-- ═══ GLOBAL ERROR BANNER ═══ -->
+      <div class="a2ui-error-banner hidden animate-fade-up mb-4" id="globalError"></div>
+
+      <!-- ═══════ LOGIN FORM ═══════ -->
+      <form id="loginForm" class="animate-fade-up space-y-4" onsubmit="handleLogin(event)" novalidate>
+        <div>
+          <label class="a2ui-label" for="loginUser">用户名或邮箱</label>
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="loginUser" class="a2ui-input pl-10" placeholder="admin 或 admin@a2ui.com" autocomplete="username" required>
+          </div>
+          <div class="a2ui-error-text hidden" id="loginUserError"></div>
+        </div>
+
+        <div>
+          <label class="a2ui-label" for="loginPwd">密码</label>
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <input type="password" id="loginPwd" class="a2ui-input pl-10 pr-10" placeholder="输入密码" autocomplete="current-password" required>
+            <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1" onclick="togglePassword('loginPwd', this)" aria-label="显示密码">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="a2ui-error-text hidden" id="loginPwdError"></div>
+        </div>
+
+        <div class="flex items-center justify-between text-sm">
+          <label class="flex items-center gap-2 cursor-pointer text-slate-500">
+            <input type="checkbox" class="a2ui-checkbox" checked>
+            <span>记住我</span>
+          </label>
+          <a href="#" class="text-xs font-medium hover:underline" style="color:var(--accent-primary);">忘记密码？</a>
+        </div>
+
+        <button type="submit" class="a2ui-btn a2ui-btn-primary mt-2" id="loginBtn">
+          <span class="btn-text">登录</span>
+          <span class="btn-loading hidden"><div class="w-4 h-4 rounded-full border-2 border-white border-t-transparent" style="animation:spin 0.7s linear infinite;"></div>登录中...</span>
+        </button>
+      </form>
+
+      <!-- ═══════ REGISTER FORM ═══════ -->
+      <form id="registerForm" class="animate-fade-up space-y-4" style="display:none;" onsubmit="handleRegister(event)" novalidate>
+        <div>
+          <label class="a2ui-label" for="regUser">用户名</label>
+          <input type="text" id="regUser" class="a2ui-input" placeholder="设置用户名" autocomplete="username" required minlength="3">
+          <div class="a2ui-error-text hidden" id="regUserError"></div>
+        </div>
+        <div>
+          <label class="a2ui-label" for="regEmail">邮箱</label>
+          <input type="email" id="regEmail" class="a2ui-input" placeholder="your@email.com" autocomplete="email" required>
+          <div class="a2ui-error-text hidden" id="regEmailError"></div>
+        </div>
+        <div>
+          <label class="a2ui-label" for="regPwd">密码</label>
+          <div class="relative">
+            <input type="password" id="regPwd" class="a2ui-input pr-10" placeholder="至少 6 位字符" autocomplete="new-password" required minlength="6">
+            <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1" onclick="togglePassword('regPwd', this)" aria-label="显示密码">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="a2ui-error-text hidden" id="regPwdError"></div>
+        </div>
+        <div>
+          <label class="a2ui-label" for="regPwdConfirm">确认密码</label>
+          <input type="password" id="regPwdConfirm" class="a2ui-input" placeholder="再次输入密码" autocomplete="new-password" required>
+          <div class="a2ui-error-text hidden" id="regPwdConfirmError"></div>
+        </div>
+
+        <button type="submit" class="a2ui-btn a2ui-btn-primary mt-2" id="registerBtn">
+          <span class="btn-text">创建账号</span>
+          <span class="btn-loading hidden"><div class="w-4 h-4 rounded-full border-2 border-white border-t-transparent" style="animation:spin 0.7s linear infinite;"></div>注册中...</span>
+        </button>
+      </form>
+
+      <!-- ═══ Divider ═══ -->
+      <div class="relative my-6" id="authDivider">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-100"></div></div>
+        <div class="relative flex justify-center"><span class="bg-white px-3 text-xs text-slate-400">或</span></div>
+      </div>
+
+      <!-- ═══ Demo quick login ═══ -->
+      <div id="quickLogin" class="text-center animate-fade-up" style="animation-delay:0.15s;">
+        <p class="text-xs text-slate-400 mb-3">快速体验</p>
+        <button onclick="quickLogin()" class="a2ui-btn w-full text-sm font-medium" style="background:#f8fafc;border:1px solid var(--border-subtle);color:var(--text-secondary);min-height:44px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          以管理员身份登录（demo）
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SUCCESS TOAST ═══════════════ -->
+<div id="successToast" class="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg animate-fade-up"
+     style="background:#d1fae5;border:1px solid #a7f3d0;color:#065f46;display:none;">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span class="text-sm font-medium" id="toastMsg"></span>
+</div>
+
+<script>
+// ─── Tab Switching ───
+function switchAuthTab(tab) {
+  const isLogin = tab === 'login';
+
+  document.getElementById('tab-login').classList.toggle('active', isLogin);
+  document.getElementById('tab-login').setAttribute('aria-selected', isLogin);
+  document.getElementById('tab-register').classList.toggle('active', !isLogin);
+  document.getElementById('tab-register').setAttribute('aria-selected', !isLogin);
+
+  document.getElementById('loginForm').style.display = isLogin ? '' : 'none';
+  document.getElementById('registerForm').style.display = isLogin ? 'none' : '';
+  document.getElementById('authDivider').style.display = isLogin ? '' : 'none';
+  document.getElementById('quickLogin').style.display = isLogin ? '' : 'none';
+
+  // Clear errors
+  hideGlobalError();
+  clearFieldErrors();
+}
+
+// ─── Toggle Password Visibility ───
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isPassword = input.type === 'password';
+  input.type = isPassword ? 'text' : 'password';
+
+  const eyeIcon = isPassword
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${eyeIcon}</svg>`;
+}
+
+// ─── Login Handler ───
+function handleLogin(e) {
+  e.preventDefault();
+  clearFieldErrors();
+  hideGlobalError();
+
+  const user = document.getElementById('loginUser').value.trim();
+  const pwd = document.getElementById('loginPwd').value.trim();
+  let hasError = false;
+
+  if (!user) { showFieldError('loginUser', 'loginUserError', '请输入用户名或邮箱'); hasError = true; }
+  if (!pwd) { showFieldError('loginPwd', 'loginPwdError', '请输入密码'); hasError = true; }
+
+  if (hasError) return;
+
+  // Loading state
+  setButtonLoading('loginBtn', true);
+
+  // Simulate auth
+  setTimeout(() => {
+    setButtonLoading('loginBtn', false);
+
+    // Demo: admin/admin passes, others fail
+    if (user === 'admin' && pwd === 'admin') {
+      showToast('登录成功！正在跳转...');
+      setTimeout(() => { showToast('已进入系统 ✓'); }, 1500);
+    } else {
+      showGlobalError('用户名或密码错误，请重试。提示：试用 admin / admin');
+      document.getElementById('loginPwd').classList.add('error');
+      document.getElementById('loginUser').classList.add('error');
+    }
+  }, 1200);
+}
+
+// ─── Register Handler ───
+function handleRegister(e) {
+  e.preventDefault();
+  clearFieldErrors();
+  hideGlobalError();
+
+  const user = document.getElementById('regUser').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pwd = document.getElementById('regPwd').value;
+  const pwdConfirm = document.getElementById('regPwdConfirm').value;
+  let hasError = false;
+
+  if (!user || user.length < 3) { showFieldError('regUser', 'regUserError', '用户名至少 3 个字符'); hasError = true; }
+  if (!email || !email.includes('@')) { showFieldError('regEmail', 'regEmailError', '请输入有效的邮箱地址'); hasError = true; }
+  if (!pwd || pwd.length < 6) { showFieldError('regPwd', 'regPwdError', '密码至少 6 位字符'); hasError = true; }
+  if (pwd !== pwdConfirm) { showFieldError('regPwdConfirm', 'regPwdConfirmError', '两次输入的密码不一致'); hasError = true; }
+
+  if (hasError) return;
+
+  setButtonLoading('registerBtn', true);
+
+  setTimeout(() => {
+    setButtonLoading('registerBtn', false);
+    showToast('注册成功！请登录');
+    setTimeout(() => switchAuthTab('login'), 1500);
+  }, 1200);
+}
+
+// ─── Quick Login ───
+function quickLogin() {
+  document.getElementById('loginUser').value = 'admin';
+  document.getElementById('loginPwd').value = 'admin';
+  clearFieldErrors();
+  hideGlobalError();
+  setButtonLoading('loginBtn', true);
+
+  setTimeout(() => {
+    setButtonLoading('loginBtn', false);
+    showToast('登录成功！正在跳转...');
+  }, 800);
+}
+
+// ─── UI Helpers ───
+function setButtonLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  const text = btn.querySelector('.btn-text');
+  const loader = btn.querySelector('.btn-loading');
+  if (loading) {
+    btn.disabled = true;
+    text?.classList.add('hidden');
+    loader?.classList.remove('hidden');
+  } else {
+    btn.disabled = false;
+    text?.classList.remove('hidden');
+    loader?.classList.add('hidden');
+  }
+}
+
+function showFieldError(inputId, errorId, msg) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+  input?.classList.add('error');
+  if (error) { error.textContent = msg; error.classList.remove('hidden'); }
+  // Auto-clear on input
+  input?.addEventListener('input', function clear() {
+    input.classList.remove('error');
+    error?.classList.add('hidden');
+    input.removeEventListener('input', clear);
+  }, { once: true });
+}
+
+function clearFieldErrors() {
+  document.querySelectorAll('.a2ui-input.error').forEach(el => el.classList.remove('error'));
+  document.querySelectorAll('.a2ui-error-text').forEach(el => { el.textContent = ''; el.classList.add('hidden'); });
+}
+
+function showGlobalError(msg) {
+  const el = document.getElementById('globalError');
+  el.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${msg}</span>`;
+  el.classList.remove('hidden');
+  el.classList.add('animate-fade-up');
+}
+
+function hideGlobalError() {
+  document.getElementById('globalError').classList.add('hidden');
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('successToast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.style.display = 'flex';
+  toast.classList.remove('animate-fade-up');
+  void toast.offsetWidth;
+  toast.classList.add('animate-fade-up');
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>

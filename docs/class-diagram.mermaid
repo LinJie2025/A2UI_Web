@@ -1,0 +1,142 @@
+classDiagram
+    direction TB
+
+    %% ── DB Models ──
+    class User {
+        +int id
+        +str username
+        +str password_hash
+        +bool is_active
+        +bool is_admin
+        +int role_id FK
+        +str odoo_api_key_encrypted
+        +datetime created_at
+        +datetime updated_at
+    }
+
+    class Role {
+        +int id
+        +str name
+        +str description
+        +datetime created_at
+    }
+
+    class ToolWhitelist {
+        +int id
+        +int role_id FK
+        +str tool_name
+    }
+
+    class Conversation {
+        +int id
+        +int user_id FK
+        +str title
+        +datetime created_at
+        +datetime updated_at
+    }
+
+    class Message {
+        +int id
+        +int conversation_id FK
+        +str role
+        +str content
+        +str tool_calls_json
+        +str tool_call_id
+        +datetime created_at
+    }
+
+    %% ── Relationships ──
+    User "1" --> "0..1" Role : belongs to
+    Role "1" --> "*" ToolWhitelist : has many
+    User "1" --> "*" Conversation : owns
+    Conversation "1" --> "*" Message : contains
+
+    %% ── Services ──
+    class AuthService {
+        +register(username, password) User
+        +login(username, password) TokenResponse
+        +get_current_user(token) User
+        +hash_password(pw) str
+        +verify_password(pw, hash) bool
+    }
+
+    class CryptoService {
+        +encrypt(plaintext) str
+        +decrypt(ciphertext) str
+        -_fernet : Fernet
+    }
+
+    class UserService {
+        +list_users() list[User]
+        +get_user(user_id) User
+        +create_user(data) User
+        +update_user(user_id, data) User
+        +toggle_active(user_id) User
+    }
+
+    class RoleService {
+        +list_roles() list[Role]
+        +get_role(role_id) Role
+        +create_role(data) Role
+        +update_role(role_id, data) Role
+        +delete_role(role_id) None
+        +get_tool_whitelist(role_id) list[str]
+        +set_tool_whitelist(role_id, tools) None
+    }
+
+    class MCPClient {
+        -httpx.AsyncClient _client
+        -str _base_url
+        -str _token
+        +list_tools() list[ToolDef]
+        +call_tool(name, arguments) dict
+    }
+
+    class LLMClient {
+        -AsyncOpenAI _client
+        -str _model
+        +chat_stream(messages, tools) AsyncIterator
+    }
+
+    class SystemPromptBuilder {
+        +build(user, all_tools) str
+        +get_available_tools(user, all_tools) list[ToolDef]
+        -_render_tools(tools) str
+        -_render_constraints() str
+    }
+
+    class AgentLoop {
+        +int MAX_LOOPS
+        +float LOOP_TIMEOUT
+        +run(messages, tools, user) AsyncIterator[SSEEvent]
+        -_execute_tool(mcp_client, tool_call) dict
+    }
+
+    class ChatService {
+        +stream_chat(user, messages, conversation_id) AsyncIterator[SSEEvent]
+        +save_message(conversation_id, role, content, tool_calls) Message
+    }
+
+    class ConversationService {
+        +list_conversations(user_id) list[Conversation]
+        +get_conversation(conv_id) Conversation
+        +create_conversation(user_id, title) Conversation
+        +delete_conversation(conv_id) None
+        +get_messages(conv_id) list[Message]
+    }
+
+    %% ── Service Dependencies ──
+    AuthService ..> CryptoService : uses (password hashing)
+    AuthService ..> User : reads/writes
+    UserService ..> CryptoService : uses (API key encrypt/decrypt)
+    UserService ..> User : CRUD
+    RoleService ..> Role : CRUD
+    RoleService ..> ToolWhitelist : CRUD
+    ChatService ..> AgentLoop : orchestrates
+    ChatService ..> SystemPromptBuilder : builds prompt
+    ChatService ..> ConversationService : saves messages
+    AgentLoop ..> LLMClient : calls LLM
+    AgentLoop ..> MCPClient : calls tools
+    SystemPromptBuilder ..> RoleService : gets whitelist
+    ConversationService ..> Conversation : CRUD
+    ConversationService ..> Message : CRUD
