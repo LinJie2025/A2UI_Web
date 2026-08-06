@@ -25,6 +25,8 @@ export default {
     empty: "暂无会话记录",
     deleteTitle: "删除会话",
     newSession: "新会话",
+    expand: "展开侧栏",
+    collapse: "折叠侧栏",
   },
 
   // ── Login ──
@@ -190,30 +192,4 @@ export default {
     switchTo: "切换语言",
   },
 
-  // ── Action Log ──
-  actionLog: {
-    title: "操作记录",
-    empty: "暂无操作记录",
-    loadError: "加载失败",
-    noSummary: "操作完成",
-    unknownError: "未知错误",
-    processingHint: "处理中...",
-    interruptedHint: "操作已中断",
-    formData: "表单数据",
-    updatedAt: "更新时间",
-    justNow: "刚刚",
-    minAgo: "分钟前",
-    hourAgo: "小时前",
-    createOrder: "创建采购订单",
-    checkStock: "查询库存",
-    search: "搜索",
-    create: "创建",
-    update: "更新",
-    delete: "删除",
-    statusSubmitted: "已提交",
-    statusProcessing: "处理中",
-    statusDone: "已完成",
-    statusFailed: "失败",
-    statusInterrupted: "已中断",
-  },
 };

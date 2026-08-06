@@ -39,6 +39,13 @@ export function useSSE(): UseSSEReturn {
     if (!streamingMessage.value) return;
 
     switch (event.event) {
+      case "user_message_saved": {
+        // Capture conversation_id from the initial event
+        if (event.data.conversation_id) {
+          streamingMessage.value.conversationId = event.data.conversation_id as number;
+        }
+        break;
+      }
       case "text": {
         const delta = (event.data.delta as string) || "";
         streamingMessage.value.content += delta;

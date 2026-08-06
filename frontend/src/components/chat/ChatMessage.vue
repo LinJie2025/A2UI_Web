@@ -8,9 +8,6 @@
     <div :class="['msg-bubble', isUser ? 'msg-bubble-user' : hasA2UI ? 'msg-bubble-ai-wide' : 'msg-bubble-ai']">
       <div class="msg-header">
         <span class="msg-sender">{{ isUser ? $t('chat.me') : $t('chat.assistantName') }}</span>
-        <span v-if="statusBadge" class="a2ui-status-badge" :class="'badge-' + statusBadge.status">
-          {{ badgeLabel(statusBadge) }}
-        </span>
       </div>
       <div v-if="streaming && !isUser" class="a2ui-skeleton">
         <div class="skeleton-card">
@@ -23,12 +20,11 @@
       </div>
       <div v-else-if="streaming" class="msg-text"><StreamingText :text="message.content || ''" /></div>
       <div v-else-if="!isUser && hasA2UI" class="a2ui-preview">
-        <A2UIRenderer :key="contentHash" :raw-text="message.content || ''" :readonly="readonly" @a2ui-action="onA2UIAction" />
-        <div v-if="!readonly" class="a2ui-expand-row">
-          <button class="a2ui-expand-btn" @click="openOverlay" :title="$t('chat.expandFullscreen')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-            {{ $t('chat.expandFullscreen') }}
-          </button>
+        <A2UIRenderer :key="contentHash" :raw-text="a2uiRawText" :readonly="readonly" @a2ui-action="onA2UIAction" />
+        <!-- Action result banner shown below the form after submission -->
+        <div v-if="message.action_result" class="action-result" :class="message.action_status === 'failed' ? 'result-failed' : 'result-done'">
+          <span class="result-icon">{{ message.action_status === 'failed' ? '❌' : '✅' }}</span>
+          <span class="result-text">{{ message.action_result }}</span>
         </div>
       </div>
       <div v-else class="msg-text">{{ message.content || '' }}</div>
@@ -39,38 +35,47 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useI18n } from "vue-i18n";
-import { useChatStore } from "@/stores/chat";
 import StreamingText from "./StreamingText.vue";
 import { hasA2UIMessages } from "@/utils/a2ui-parser";
 import A2UIRenderer from "@/components/a2ui/A2UIRenderer.vue";
-import type { ChatMessage as ChatMessageType } from "@/types/chat";
+import type { Message as ChatMessageType } from "@/types/chat";
 
-const { t } = useI18n();
-
-export interface A2uiStatusBadge {
-  status: "processing" | "done" | "failed" | "interrupted";
-  summary: string | null;
-}
-
-const props = withDefaults(defineProps<{ message: ChatMessageType; streaming?: boolean; readonly?: boolean; statusBadge?: A2uiStatusBadge | null; }>(), { streaming: false, readonly: false, statusBadge: null });
+const props = withDefaults(defineProps<{ message: ChatMessageType; streaming?: boolean; readonly?: boolean; }>(), { streaming: false, readonly: false });
 
 const emit = defineEmits<{ (e: "a2ui-action", payload: { action: string; surfaceId: string; data: Record<string, unknown> }): void; }>();
 
-const chatStore = useChatStore();
 const isUser = computed(() => props.message.role === "user");
-const hasA2UI = computed(() => hasA2UIMessages(props.message.content || ""));
-const contentHash = computed(() => { const c = props.message.content || ""; return c.length > 0 ? c.length + "_" + c.charCodeAt(c.length - 1) + "_" + c.charCodeAt(0) : "0"; });
 
-function badgeLabel(badge: A2uiStatusBadge): string {
-  if (badge.status === "processing") return "⏳ " + t("actionLog.statusProcessing");
-  if (badge.status === "done") return "✅ " + t("actionLog.statusDone");
-  if (badge.status === "failed") return "❌ " + t("actionLog.statusFailed");
-  return "⚠️ " + t("actionLog.statusInterrupted");
-}
+/**
+ * During streaming: content contains both plain text + A2UI JSONL (mixed).
+ * From history / DB: backend stores them separately — content = text, a2ui_jsonl = A2UI.
+ * We combine both so A2UI detection & rendering work in both scenarios.
+ */
+const effectiveContent = computed(() => {
+  const parts: string[] = [];
+  if (props.message.content) parts.push(props.message.content);
+  if (props.message.a2ui_jsonl) parts.push(props.message.a2ui_jsonl);
+  return parts.join("\n");
+});
+
+const hasA2UI = computed(() => hasA2UIMessages(effectiveContent.value));
+
+/**
+ * Raw text passed to A2UIRenderer:
+ * - History messages: use a2ui_jsonl only (backend stores JSONL separately from text).
+ *   This avoids the plain text from content being duplicated alongside the A2UI surface.
+ * - Streaming messages: use content (JSONL is embedded in the streamed text).
+ */
+const a2uiRawText = computed(() => {
+  return props.message.a2ui_jsonl || props.message.content || "";
+});
+
+const contentHash = computed(() => {
+  const c = a2uiRawText.value;
+  return c.length > 0 ? c.length + "_" + c.charCodeAt(c.length - 1) + "_" + c.charCodeAt(0) : "0";
+});
 
 function onA2UIAction(payload: { action: string; surfaceId: string; data: Record<string, unknown> }) { if (props.readonly) return; emit("a2ui-action", payload); }
-function openOverlay() { if (props.readonly) return; chatStore.openA2UIOverlay(props.message.content || ""); }
 </script>
 
 <style scoped>
@@ -87,17 +92,39 @@ function openOverlay() { if (props.readonly) return; chatStore.openA2UIOverlay(p
 .msg-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
 .msg-bubble-user .msg-sender { color: rgba(255,255,255,0.6); }
 .msg-sender { font-size: 0.6875rem; font-weight: 500; color: #94a3b8; font-family: 'Outfit', sans-serif; }
-.a2ui-status-badge { font-size: 0.625rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 999px; line-height: 1.4; white-space: nowrap; }
-.badge-done { background: #dcfce7; color: #16a34a; }
-.badge-failed { background: #fef2f2; color: #dc2626; }
-.badge-processing { background: #dbeafe; color: #2563eb; }
-.badge-interrupted { background: #fef9c3; color: #ca8a04; }
 .msg-text { white-space: pre-wrap; word-break: break-word; }
 .a2ui-preview { position: relative; }
-.a2ui-expand-row { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; }
-.a2ui-expand-btn { font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 0.75rem; padding: 0.375rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #64748b; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; min-height: 36px; transition: all 0.15s ease; }
-.a2ui-expand-btn:hover { border-color: #93c5fd; background: #eff6ff; color: #2563eb; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1); }
-.a2ui-expand-btn:active { transform: scale(0.97); }
+
+/* ── Action result banner (form submission feedback) ────── */
+.action-result {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.result-done {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+.result-failed {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+.result-icon {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.result-text {
+  word-break: break-word;
+}
+
 .a2ui-skeleton { min-width: 260px; }
 .skeleton-card { position: relative; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; overflow: hidden; }
 .skeleton-shimmer { position: absolute; inset: 0; background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.6) 45%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0.6) 55%, transparent 60%); animation: shimmerSweep 2s ease-in-out infinite; z-index: 1; pointer-events: none; }

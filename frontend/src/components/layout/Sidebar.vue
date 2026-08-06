@@ -20,9 +20,14 @@
           <svg class="conv-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           <span class="conv-title">{{ conv.title || $t('sidebar.newSession') }}</span>
         </div>
-        <button class="conv-delete" :title="$t('sidebar.deleteTitle')" @click.stop="handleDelete(conv.id)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-        </button>
+        <div class="conv-actions">
+          <button class="conv-edit" :title="$t('sidebar.editTitle')" @click.stop="startEdit(conv)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="conv-delete" :title="$t('sidebar.deleteTitle')" @click.stop="handleDelete(conv.id)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
+        </div>
       </div>
 
       <div v-if="convStore.conversations.length === 0" class="conv-empty">
@@ -33,12 +38,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useConversationStore } from "@/stores/conversation";
 import { useChatStore } from "@/stores/chat";
 
 const convStore = useConversationStore();
 const chatStore = useChatStore();
+
+const editingId = ref<number | null>(null);
+const editTitle = ref("");
 
 const emit = defineEmits<{
   (e: "new-chat"): void;
@@ -46,32 +54,44 @@ const emit = defineEmits<{
 }>();
 
 onMounted(() => {
-  convStore.fetchConversations();
+  convStore.fetchList();
 });
 
 function handleNewChat() {
-  convStore.setCurrentConversation(null);
-  chatStore.clearMessages();
   emit("new-chat");
 }
 
 async function handleSelect(conv: { id: number }) {
-  convStore.setCurrentConversation(conv.id);
   emit("select-conversation", conv.id);
 }
 
 async function handleDelete(id: number) {
-  await convStore.deleteConversation(id);
+  await convStore.removeConversation(id);
   if (convStore.currentConversationId === id) {
     chatStore.clearMessages();
   }
+}
+
+function startEdit(conv: { id: number; title: string | null }) {
+  editingId.value = conv.id;
+  editTitle.value = conv.title || "";
+}
+
+async function saveEdit(id: number) {
+  if (editTitle.value.trim()) {
+    await convStore.updateTitle(id, editTitle.value.trim());
+  }
+  editingId.value = null;
+}
+
+function cancelEdit() {
+  editingId.value = null;
 }
 </script>
 
 <style scoped>
 .sidebar {
-  width: 256px;
-  flex-shrink: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -159,10 +179,32 @@ async function handleDelete(id: number) {
   opacity: 0;
   transition: all 0.15s;
 }
-.conv-item:hover .conv-delete { opacity: 1; }
+.conv-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.conv-item:hover .conv-delete,
+.conv-item:hover .conv-edit { opacity: 1; }
 .conv-delete:hover {
   color: #ef4444;
   background: #fef2f2;
+}
+.conv-edit {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.15s;
+}
+.conv-edit:hover {
+  color: #2563eb;
+  background: #eff6ff;
 }
 
 .conv-empty {

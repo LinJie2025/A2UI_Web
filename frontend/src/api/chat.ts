@@ -1,20 +1,44 @@
-import client from "./client";
+/** Chat request builder — v2 unified format.
+
+SSE streaming uses native fetch() in useSSE composable, not axios.
+This file provides typed helpers for building the request payload.
+*/
+
 import type { ChatRequest } from "@/types/chat";
 
 /**
- * Send a chat request via SSE and return the fetch Response for streaming.
- * Note: Axios doesn't support ReadableStream well, so we use fetch directly
- * in the useSSE composable. This file provides the typed request builder.
+ * Build a chat request for normal text conversation.
  */
 export function buildChatRequest(
-  messages: { role: string; content: string | null }[],
+  content: string,
   conversationId: number | null = null,
 ): ChatRequest {
   return {
-    messages: messages.map((m) => ({
-      role: m.role as "user" | "assistant" | "system" | "tool",
-      content: m.content,
-    })),
     conversation_id: conversationId,
+    message: {
+      role: "user",
+      content,
+    },
+  };
+}
+
+/**
+ * Build a chat request for A2UI form submission.
+ */
+export function buildActionRequest(
+  actionName: string,
+  formData: Record<string, unknown>,
+  conversationId: number,
+): ChatRequest {
+  return {
+    conversation_id: conversationId,
+    message: {
+      role: "user",
+      content: null,
+      meta: {
+        action_name: actionName,
+        form_data: formData,
+      },
+    },
   };
 }

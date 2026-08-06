@@ -1,43 +1,43 @@
 <template>
   <Teleport to="body">
     <Transition name="overlay">
-      <div v-if="chatStore.showA2UIOverlay" class="a2ui-overlay" @click.self="chatStore.closeA2UIOverlay()">
+      <div v-if="a2uiStore.showOverlay" class="a2ui-overlay" @click.self="a2uiStore.closeOverlay()">
         <div class="a2ui-overlay-card">
           <header class="a2ui-overlay-topbar">
             <div class="flex items-center gap-2">
-              <button class="a2ui-overlay-close-btn" @click="chatStore.closeA2UIOverlay()" :title="$t('chat.closeOverlay')">
+              <button class="a2ui-overlay-close-btn" @click="a2uiStore.closeOverlay()" :title="$t('chat.closeOverlay')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
               <span class="a2ui-overlay-title">{{ currentStep?.title || 'A2UI Form' }}</span>
             </div>
-            <div v-if="chatStore.totalSteps > 1" class="a2ui-overlay-badge" :class="'badge-' + chatStore.overlayBadge">
+            <div v-if="a2uiStore.totalSteps > 1" class="a2ui-overlay-badge" :class="'badge-' + a2uiStore.overlayBadge">
               {{ badgeText }}
             </div>
           </header>
-          <div v-if="chatStore.totalSteps > 1" class="a2ui-step-indicator">
+          <div v-if="a2uiStore.totalSteps > 1" class="a2ui-step-indicator">
             <div class="a2ui-step-track">
-              <template v-for="(step, idx) in chatStore.a2uiOverlaySteps" :key="step.id">
-                <div :class="['a2ui-step-dot', stepClass(step, idx)]" @click="chatStore.goToStep(idx)">
+              <template v-for="(step, idx) in a2uiStore.overlaySteps" :key="step.id">
+                <div :class="['a2ui-step-dot', stepClass(step, idx)]" @click="a2uiStore.goToStep(idx)">
                   <span v-if="step.status === 'done'" class="a2ui-step-check">&#10003;</span>
                   <span v-else>{{ idx + 1 }}</span>
                 </div>
-                <div v-if="idx < chatStore.a2uiOverlaySteps.length - 1" :class="['a2ui-step-line', step.status === 'done' ? 'line-done' : '']"></div>
+                <div v-if="idx < a2uiStore.overlaySteps.length - 1" :class="['a2ui-step-line', step.status === 'done' ? 'line-done' : '']"></div>
               </template>
             </div>
             <div class="a2ui-step-labels">
-              <span v-for="(step, idx) in chatStore.a2uiOverlaySteps" :key="'l' + step.id" :class="['a2ui-step-label', stepLabelClass(step, idx)]" @click="chatStore.goToStep(idx)">{{ step.title }}</span>
+              <span v-for="(step, idx) in a2uiStore.overlaySteps" :key="'l' + step.id" :class="['a2ui-step-label', stepLabelClass(step, idx)]" @click="a2uiStore.goToStep(idx)">{{ step.title }}</span>
             </div>
           </div>
-          <div class="a2ui-overlay-body" :key="chatStore.currentStepIndex">
-            <A2UIRenderer :raw-text="chatStore.currentStepContent" @a2ui-action="handleAction" />
+          <div class="a2ui-overlay-body" :key="a2uiStore.currentStepIndex">
+            <A2UIRenderer :raw-text="a2uiStore.currentStepContent" @a2ui-action="handleAction" />
           </div>
-          <footer v-if="chatStore.totalSteps > 1" class="a2ui-overlay-footer">
-            <button class="a2ui-step-btn a2ui-step-btn-prev" :disabled="!chatStore.hasPrevStep" @click="chatStore.prevStep()">
+          <footer v-if="a2uiStore.totalSteps > 1" class="a2ui-overlay-footer">
+            <button class="a2ui-step-btn a2ui-step-btn-prev" :disabled="!a2uiStore.hasPrevStep" @click="a2uiStore.prevStep()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
               {{ $t('overlay.prevStep') }}
             </button>
-            <span class="a2ui-step-counter">{{ chatStore.currentStepIndex + 1 }} / {{ chatStore.totalSteps }}</span>
-            <button class="a2ui-step-btn a2ui-step-btn-next" :disabled="!chatStore.hasNextStep" @click="chatStore.nextStep()">
+            <span class="a2ui-step-counter">{{ a2uiStore.currentStepIndex + 1 }} / {{ a2uiStore.totalSteps }}</span>
+            <button class="a2ui-step-btn a2ui-step-btn-next" :disabled="!a2uiStore.hasNextStep" @click="a2uiStore.nextStep()">
               {{ $t('overlay.nextStep') }}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
@@ -51,22 +51,22 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useChatStore, type A2UIOverlayStep } from "@/stores/chat";
+import { useA2UIStore, type A2UIOverlayStep } from "@/stores/a2ui";
 import A2UIRenderer from "./A2UIRenderer.vue";
 
 const { t } = useI18n();
-const chatStore = useChatStore();
+const a2uiStore = useA2UIStore();
 
 const emit = defineEmits<{ (e: "a2ui-action", payload: { action: string; surfaceId: string; data: Record<string, unknown> }): void; }>();
 
-const currentStep = computed(() => chatStore.a2uiOverlaySteps[chatStore.currentStepIndex] ?? null);
-const badgeText = computed(() => { if (chatStore.isLastStep) return t("overlay.statusDone"); return `${chatStore.currentStepIndex + 1}/${chatStore.totalSteps}`; });
+const currentStep = computed(() => a2uiStore.overlaySteps[a2uiStore.currentStepIndex] ?? null);
+const badgeText = computed(() => { if (a2uiStore.isLastStep) return t("overlay.statusDone"); return `${a2uiStore.currentStepIndex + 1}/${a2uiStore.totalSteps}`; });
 
 function stepClass(step: A2UIOverlayStep, idx: number): string {
-  if (step.status === "done") return "dot-done"; if (idx === chatStore.currentStepIndex) return "dot-active"; return "";
+  if (step.status === "done") return "dot-done"; if (idx === a2uiStore.currentStepIndex) return "dot-active"; return "";
 }
 function stepLabelClass(step: A2UIOverlayStep, idx: number): string {
-  if (step.status === "done") return "label-done"; if (idx === chatStore.currentStepIndex) return "label-active"; return "";
+  if (step.status === "done") return "label-done"; if (idx === a2uiStore.currentStepIndex) return "label-active"; return "";
 }
 function handleAction(payload: { action: string; surfaceId: string; data: Record<string, unknown> }) { emit("a2ui-action", payload); }
 </script>

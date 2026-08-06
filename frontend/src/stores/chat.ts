@@ -1,134 +1,119 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import type { ChatMessage, StreamingMessage } from "@/types/chat";
-
-/** A single step in the A2UI overlay */
-export interface A2UIOverlayStep {
-  id: string;
-  title: string;
-  content: string;
-  status: "pending" | "active" | "done";
-}
+import { ref } from "vue";
+import type { Message, StreamingMessage } from "@/types/chat";
+import { getConversationApi } from "@/api/conversation";
 
 export const useChatStore = defineStore("chat", () => {
-  const messages = ref<ChatMessage[]>([]);
+  /** All messages in the current conversation (single source of truth). */
+  const messages = ref<Message[]>([]);
+  /** The streaming message being built from SSE. */
   const currentStreamingMessage = ref<StreamingMessage | null>(null);
+  /** Whether SSE stream is active. */
   const isStreaming = ref(false);
+  /** Current conversation ID. */
+  const currentConversationId = ref<number | null>(null);
 
-  // Overlay
-  const showA2UIOverlay = ref(false);
-  const a2uiOverlaySteps = ref<A2UIOverlayStep[]>([]);
-  const currentStepIndex = ref(0);
-  const totalSteps = computed(() => a2uiOverlaySteps.value.length);
-  const hasNextStep = computed(() => currentStepIndex.value < totalSteps.value - 1);
-  const hasPrevStep = computed(() => currentStepIndex.value > 0);
-  const isLastStep = computed(() => currentStepIndex.value === totalSteps.value - 1);
-  const currentStepContent = computed(() => {
-    return a2uiOverlaySteps.value[currentStepIndex.value]?.content ?? "";
-  });
-  const overlayBadge = computed(() => {
-    if (totalSteps.value === 0) return "";
-    if (isLastStep.value) return "done";
-    return "active";
-  });
-
-  function openA2UIOverlay(rawText: string, title?: string) {
-    if (a2uiOverlaySteps.value.length > 0) {
-      showA2UIOverlay.value = true;
-      return;
-    }
-    const extractedTitle = title || extractTitleFromContent(rawText) || "Step 1";
-    a2uiOverlaySteps.value = [
-      {
-        id: `step_${Date.now()}`,
-        title: extractedTitle,
-        content: rawText,
-        status: totalSteps.value > 1 ? "done" : "active",
-      },
-    ];
-    currentStepIndex.value = 0;
-    showA2UIOverlay.value = true;
-  }
-
-  function addOverlayStep(rawText: string, title?: string) {
-    const extractedTitle = title || extractTitleFromContent(rawText) || `Step ${a2uiOverlaySteps.value.length + 1}`;
-    a2uiOverlaySteps.value.forEach((s) => {
-      if (s.status === "active") s.status = "done";
-    });
-    a2uiOverlaySteps.value.push({
-      id: `step_${Date.now()}`,
-      title: extractedTitle,
-      content: rawText,
-      status: "active",
-    });
-    currentStepIndex.value = a2uiOverlaySteps.value.length - 1;
-  }
-
-  function goToStep(index: number) {
-    if (index >= 0 && index < a2uiOverlaySteps.value.length) {
-      currentStepIndex.value = index;
-    }
-  }
-
-  function prevStep() { if (hasPrevStep.value) currentStepIndex.value--; }
-  function nextStep() { if (hasNextStep.value) currentStepIndex.value++; }
-
-  function closeA2UIOverlay() {
-    showA2UIOverlay.value = false;
-  }
-
-  function extractTitleFromContent(text: string): string | null {
-    if (!text) return null;
+  /** Load messages from backend for a given conversation. */
+  async function loadHistory(conversationId: number): Promise<void> {
+    currentConversationId.value = conversationId;
     try {
-      const lines = text.split("\n");
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const parsed = JSON.parse(trimmed);
-        if (parsed.updateComponents) {
-          const comps = parsed.updateComponents.components;
-          if (Array.isArray(comps)) {
-            for (const comp of comps) {
-              if (comp.component === "Text" && comp.text && typeof comp.text === "string") {
-                return comp.text;
+      const resp = await getConversationApi(conversationId);
+      if (resp.code === 0 && resp.data) {
+        const rawMessages: Message[] = resp.data.messages || [];
+
+        // Post-process: map a2ui_action results to the preceding assistant
+        // message that contains the A2UI form, then remove a2ui_action messages.
+        const processed: Message[] = [];
+        let lastFormIndex = -1; // index in processed[] of the last assistant message with A2UI form
+
+        for (const msg of rawMessages) {
+          if (msg.message_type === "a2ui_action") {
+            // Map action results onto the preceding form-bearing assistant message
+            if (lastFormIndex >= 0) {
+              const patch: Partial<Message> = {};
+              if (msg.action_result) {
+                patch.action_result = msg.action_result;
+                patch.action_status = msg.action_status;
+              }
+              // Append result A2UI JSONL (error / success card) to the form
+              // message so it renders below the form in the same bubble.
+              if (msg.a2ui_jsonl) {
+                const existing = processed[lastFormIndex].a2ui_jsonl || "";
+                patch.a2ui_jsonl = existing
+                  ? existing + "\n" + msg.a2ui_jsonl
+                  : msg.a2ui_jsonl;
+              }
+              if (Object.keys(patch).length > 0) {
+                processed[lastFormIndex] = {
+                  ...processed[lastFormIndex],
+                  ...patch,
+                };
               }
             }
+            // Skip a2ui_action messages — they are not displayed in the chat
+            continue;
+          }
+
+          processed.push(msg);
+
+          // Track the last assistant message that has a2ui form content
+          if (msg.role === "assistant" && msg.a2ui_jsonl) {
+            lastFormIndex = processed.length - 1;
           }
         }
+
+        messages.value = processed;
       }
-    } catch { /* not valid JSON */ }
-    return null;
-  }
-
-  function addMessage(msg: ChatMessage) { messages.value.push(msg); }
-  function setMessages(msgs: ChatMessage[]) { messages.value = msgs; }
-
-  function updateMessageContent(index: number, content: string) {
-    if (index >= 0 && index < messages.value.length) {
-      messages.value[index] = {
-        ...messages.value[index],
-        content: (messages.value[index].content || "") + "\n" + content,
-      };
+    } catch {
+      messages.value = [];
     }
   }
 
-  function setStreamingMessage(msg: StreamingMessage | null) { currentStreamingMessage.value = msg; }
-  function setStreaming(active: boolean) { isStreaming.value = active; }
+  /** Update a message in-place by id (merge patch fields). */
+  function updateMessage(id: number | string, patch: Partial<Message>): void {
+    const idx = messages.value.findIndex((m) => m.id === id);
+    if (idx !== -1) {
+      messages.value[idx] = { ...messages.value[idx], ...patch };
+    }
+  }
 
-  function clearMessages() {
+  /** Append a completed message (from streaming or manual). */
+  function addMessage(msg: Message): void {
+    messages.value.push(msg);
+  }
+
+  /** Replace all messages. */
+  function setMessages(msgs: Message[]): void {
+    messages.value = msgs;
+  }
+
+  /** Set streaming state. */
+  function setStreamingMessage(msg: StreamingMessage | null): void {
+    currentStreamingMessage.value = msg;
+  }
+  function setStreaming(active: boolean): void {
+    isStreaming.value = active;
+  }
+
+  /** Clear all state (used when switching conversations). */
+  function clearMessages(): void {
     messages.value = [];
     currentStreamingMessage.value = null;
-    a2uiOverlaySteps.value = [];
-    currentStepIndex.value = 0;
-    showA2UIOverlay.value = false;
+    isStreaming.value = false;
+    currentConversationId.value = null;
   }
 
   return {
-    messages, currentStreamingMessage, isStreaming,
-    showA2UIOverlay, a2uiOverlaySteps, currentStepIndex,
-    totalSteps, hasNextStep, hasPrevStep, isLastStep,
-    currentStepContent, overlayBadge,
-    openA2UIOverlay, addOverlayStep, goToStep, prevStep, nextStep, closeA2UIOverlay,
-    addMessage, setMessages, updateMessageContent, setStreamingMessage, setStreaming, clearMessages,
+    messages,
+    currentStreamingMessage,
+    isStreaming,
+    currentConversationId,
+    loadHistory,
+    addMessage,
+    updateMessage,
+    setMessages,
+    setStreamingMessage,
+    setStreaming,
+    clearMessages,
   };
 });

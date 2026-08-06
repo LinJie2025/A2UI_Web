@@ -13,7 +13,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost",
+        // Docker 开发环境使用 nginx 服务名；本地开发使用 localhost
+        target: process.env.VITE_PROXY_TARGET || "http://localhost",
         changeOrigin: true,
       },
     },

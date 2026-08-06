@@ -4,17 +4,17 @@ import type { ConversationSummary, ConversationDetail } from "@/api/conversation
 import {
   getConversationsApi,
   getConversationApi,
-  getConversationMessagesApi,
+  updateConversationApi,
   deleteConversationApi,
 } from "@/api/conversation";
 
 export const useConversationStore = defineStore("conversation", () => {
   const conversations = ref<ConversationSummary[]>([]);
   const currentConversationId = ref<number | null>(null);
-  const currentDetail = ref<ConversationDetail | null>(null);
   const loading = ref(false);
 
-  async function fetchConversations(): Promise<void> {
+  /** Fetch all conversations for the sidebar list. */
+  async function fetchList(): Promise<void> {
     loading.value = true;
     try {
       const resp = await getConversationsApi();
@@ -26,38 +26,36 @@ export const useConversationStore = defineStore("conversation", () => {
     }
   }
 
-  async function loadConversation(id: number): Promise<void> {
-    currentConversationId.value = id;
-    const resp = await getConversationApi(id);
-    if (resp.code === 0) {
-      currentDetail.value = resp.data;
+  /** Update conversation title. */
+  async function updateTitle(id: number, title: string): Promise<void> {
+    await updateConversationApi(id, title);
+    const idx = conversations.value.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      conversations.value[idx] = { ...conversations.value[idx], title };
     }
   }
 
-  async function deleteConversation(id: number): Promise<void> {
+  /** Delete a conversation and remove from list. */
+  async function removeConversation(id: number): Promise<void> {
     await deleteConversationApi(id);
     conversations.value = conversations.value.filter((c) => c.id !== id);
     if (currentConversationId.value === id) {
       currentConversationId.value = null;
-      currentDetail.value = null;
     }
   }
 
-  function setCurrentConversation(id: number | null) {
+  /** Set active conversation, load if needed. */
+  function select(id: number | null): void {
     currentConversationId.value = id;
-    if (id === null) {
-      currentDetail.value = null;
-    }
   }
 
   return {
     conversations,
     currentConversationId,
-    currentDetail,
     loading,
-    fetchConversations,
-    loadConversation,
-    deleteConversation,
-    setCurrentConversation,
+    fetchList,
+    updateTitle,
+    removeConversation,
+    select,
   };
 });
