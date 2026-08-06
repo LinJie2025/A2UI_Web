@@ -103,6 +103,7 @@ class AgentLoop:
                 if collected_tool_calls and finish_reason == "tool_calls":
                     # Add assistant message with tool_calls to history
                     assistant_msg: dict = {
+                        "type": "assistant",
                         "role": "assistant",
                         "content": collected_content or None,
                         "tool_calls": collected_tool_calls,
@@ -137,6 +138,7 @@ class AgentLoop:
                             # Append tool result to messages
                             current_messages.append({
                                 "role": "tool",
+                                "type": "function",
                                 "tool_call_id": tc["id"],
                                 "content": json.dumps(result, ensure_ascii=False),
                             })
@@ -144,6 +146,7 @@ class AgentLoop:
                             logger.error(f"Tool {tool_name} timed out after {LOOP_TIMEOUT}s")
                             current_messages.append({
                                 "role": "tool",
+                                "type": "function",
                                 "tool_call_id": tc["id"],
                                 "content": json.dumps({"error": f"Tool '{tool_name}' timed out after {LOOP_TIMEOUT}s"}),
                             })
@@ -151,6 +154,7 @@ class AgentLoop:
                             logger.error(f"Tool {tool_name} failed: {e}")
                             current_messages.append({
                                 "role": "tool",
+                                "type": "function",
                                 "tool_call_id": tc["id"],
                                 "content": json.dumps({"error": str(e)}),
                             })

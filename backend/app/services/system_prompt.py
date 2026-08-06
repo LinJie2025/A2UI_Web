@@ -2,7 +2,7 @@
 
 import logging
 from app.models.user import User
-from app.form_templates import get_template, get_all_template_tool_names
+from app.form_templates import get_template, get_all_template_tool_names, get_visible_fields
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ class SystemPromptBuilder:
                 tmpl = get_template(tool_name)
                 if not tmpl:
                     continue
-                fields_str = ", ".join(tmpl["fields"])
+                fields_str = ", ".join(get_visible_fields(tmpl))
                 prompt_parts.append(
                     f"### {tool_name}\n"
                     f"- 标题: {tmpl['title']}\n"
@@ -169,12 +169,48 @@ class SystemPromptBuilder:
         """Convert MCP tool definitions to OpenAI tool format."""
         formatted = []
         for tool in tools:
+            tool_name = tool.get("name", "")
+            input_schema = tool.get("inputSchema", {})
+
+            # Patch empty inputSchema for tools that have a form template
+            # (the Odoo MCP server may not declare parameters, but we know
+            # them from form_templates.py)
+            if not input_schema.get("properties"):
+                tmpl = get_template(tool_name)
+                if tmpl:
+                    all_fields = tmpl.get("fields", [])
+                    if all_fields:
+                        # Build properties from ALL template fields (visible + hidden)
+                        # so the LLM can pass hidden field values through to Odoo.
+                        # get_visible_fields() is for UI only; schema must include
+                        # hidden fields too, otherwise resolve_hidden_fields values
+                        # never reach the MCP tool.
+                        properties = {}
+                        required_fields = []
+                        hidden = set(tmpl.get("hidden_fields", {}).keys())
+                        for f in all_fields:
+                            properties[f] = {"type": "string", "description": f}
+                            # Hidden fields are auto-filled by backend, so they
+                            # are NOT required from the LLM's perspective
+                            if f not in hidden:
+                                required_fields.append(f)
+                        input_schema = {
+                            "type": "object",
+                            "properties": properties,
+                            "required": required_fields,
+                        }
+                        logger.debug(
+                            f"Patched inputSchema for '{tool_name}' "
+                            f"from form template: all_fields={all_fields} "
+                            f"hidden={list(hidden)} required={required_fields}"
+                        )
+
             formatted.append({
                 "type": "function",
                 "function": {
-                    "name": tool.get("name", ""),
+                    "name": tool_name,
                     "description": tool.get("description", ""),
-                    "parameters": tool.get("inputSchema", {}),
+                    "parameters": input_schema,
                 },
             })
         return formatted

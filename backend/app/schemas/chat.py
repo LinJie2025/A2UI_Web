@@ -1,27 +1,34 @@
-"""Chat-related Pydantic schemas."""
+"""Chat-related Pydantic schemas — unified API format v2."""
 
 from pydantic import BaseModel, Field
 
 
-class ChatMessageItem(BaseModel):
-    """A single message in the chat request."""
+class ChatMessageMeta(BaseModel):
+    """Optional metadata for A2UI form submissions."""
+    action_name: str | None = None
+    form_data: dict = Field(default_factory=dict)
 
-    role: str = Field(..., description="One of: user, assistant, system, tool")
+
+class ChatMessage(BaseModel):
+    """A single chat message."""
+    role: str = Field(default="user", description="user | assistant | system | tool")
     content: str | None = None
-    tool_calls: list[dict] | None = None
-    tool_call_id: str | None = None
-    name: str | None = None
+    meta: ChatMessageMeta | None = None
 
 
 class ChatRequest(BaseModel):
-    """Chat SSE streaming request payload."""
+    """Unified chat SSE streaming request payload.
 
-    messages: list[ChatMessageItem] = Field(..., min_length=1)
+    Supports both:
+      - Normal chat:  message.content = "hello"
+      - A2UI submit:  message.meta.action_name = "create_contact"
+    """
     conversation_id: int | None = None
+    message: ChatMessage
 
 
 class SSEEvent:
-    """Base SSE event emitted by the agentic loop."""
+    """SSE event emitted by the agentic loop."""
 
     def __init__(self, event: str, data: dict):
         self.event = event
@@ -30,13 +37,11 @@ class SSEEvent:
     def to_sse(self) -> str:
         """Format as SSE string."""
         import json
-
         return f"event: {self.event}\ndata: {json.dumps(self.data, ensure_ascii=False)}\n\n"
 
 
 class ToolDef(BaseModel):
     """MCP tool definition."""
-
     name: str
     description: str = ""
     inputSchema: dict = Field(default_factory=dict)
