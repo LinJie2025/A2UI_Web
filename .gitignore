@@ -56,8 +56,10 @@ htmlcov/
 *.swp
 *~
 
-# WorkBuddy (AI assistant workspace)
+# AI assistant workspaces
 .workbuddy/
+.codebuddy/
+CLAUDE.md
 
 # Secrets
 *.pem
