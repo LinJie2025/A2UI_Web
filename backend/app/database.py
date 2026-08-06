@@ -10,6 +10,20 @@ engine = create_async_engine(
     connect_args={"check_same_thread": False},
 )
 
+# Set SQLite pragmas for performance
+# Note: WAL mode creates .db-shm/.db-wal files that may cause
+# cross-platform issues with Docker bind mounts on Windows.
+# Use DELETE mode (default) for maximum compatibility.
+from sqlalchemy import event
+
+@event.listens_for(engine.sync_engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    # DELETE mode avoids WAL/SHM file lock issues on Windows Docker bind mounts
+    cursor.execute("PRAGMA journal_mode=DELETE")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 async_session_factory = async_sessionmaker(
     engine,
     class_=AsyncSession,

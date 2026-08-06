@@ -1,16 +1,18 @@
 """FastAPI application entry point.
 
-Startup: pull global MCP tool list and cache in memory.
+Startup: migrate DB, pull global MCP tool list and cache in memory.
 Shutdown: dispose database engine.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
+from sqlalchemy import text
 from app.config import settings
-from app.database import engine, Base, async_session_factory
+from app.database import engine, Base
 from app.services import mcp_client
 from app.errors import AppError
 from app.middleware.error_handler import (
@@ -30,10 +32,25 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: create tables on startup, dispose engine on shutdown."""
-    # Startup
+    # Ensure data directory exists
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    os.makedirs(data_dir, exist_ok=True)
+
+    # Startup — migrate schema
     async with engine.begin() as conn:
+        # Drop old v1 tables if they exist
+        await conn.execute(text("DROP TABLE IF EXISTS a2ui_actions"))
+        # Create/update all tables
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created (if not exist).")
+
+        # —— Manual column additions (SQLite create_all does not add columns) ——
+        try:
+            await conn.execute(text(
+                "ALTER TABLE messages ADD COLUMN action_result TEXT"
+            ))
+        except Exception:
+            pass  # Column already exists
+    logger.info("Database tables created / migrated.")
 
     # Pull global tool list from Odoo MCP
     global global_tools_cache
@@ -87,7 +104,6 @@ from app.api.tools import router as tools_router
 from app.api.users import router as users_router
 from app.api.roles import router as roles_router
 from app.api.conversations import router as conversations_router
-from app.api.a2ui import router as a2ui_router
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
@@ -95,7 +111,6 @@ app.include_router(tools_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(roles_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
-app.include_router(a2ui_router, prefix="/api")
 
 
 @app.get("/api/health")
@@ -105,21 +120,17 @@ async def health_check():
 
 
 # ── Error test endpoints (development only) ──────────────────────────────
-from app.errors import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError, ServiceUnavailableError
+from app.errors import (
+    NotFoundError, ConflictError, ValidationError,
+    UnauthorizedError, ForbiddenError, ServiceUnavailableError,
+)
 
 @app.get("/api/test-error/{error_type}")
 async def test_error(error_type: str):
-    """Trigger a specific error type to test frontend error display.
+    """Trigger a specific error type to test frontend error display. DEV ONLY."""
+    if not settings.DEBUG:
+        raise HTTPException(status_code=404)
 
-    Usage:
-      /api/test-error/not-found     → 404 + NotFoundError
-      /api/test-error/conflict      → 409 + ConflictError
-      /api/test-error/validation    → 422 + ValidationError
-      /api/test-error/unauthorized  → 401 + UnauthorizedError
-      /api/test-error/forbidden     → 403 + ForbiddenError
-      /api/test-error/service       → 503 + ServiceUnavailableError
-      /api/test-error/crash         → 500 + unexpected Exception
-    """
     error_map = {
         "not-found": lambda: (_ for _ in ()).throw(NotFoundError("Contact", 42)),
         "conflict": lambda: (_ for _ in ()).throw(ConflictError("Email already exists: test@example.com")),
@@ -132,4 +143,4 @@ async def test_error(error_type: str):
     trigger = error_map.get(error_type)
     if trigger is None:
         return {"code": 0, "data": {"available": list(error_map.keys())}, "message": "Use one of these error types"}
-    trigger()  # Will raise the error, caught by exception handlers
+    trigger()
