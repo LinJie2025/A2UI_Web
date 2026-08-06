@@ -3,6 +3,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: production
     container_name: a2ui-backend
     env_file:
       - .env
@@ -10,13 +11,14 @@ services:
       - ./data:/app/data
     networks:
       - a2ui-network
-      - odoo194_default
+      - odooenterprise-saas-194_default
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: production
       args:
         - VITE_API_BASE_URL=http://localhost/api
     container_name: a2ui-frontend-builder
@@ -47,5 +49,5 @@ volumes:
 networks:
   a2ui-network:
     driver: bridge
-  odoo194_default:
+  odooenterprise-saas-194_default:
     external: true
